@@ -1182,6 +1182,10 @@ static int override_release(char __user *release, size_t len)
 	return ret;
 }
 
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+extern int susfs_spoof_uname(struct new_utsname* tmp);
+#endif
+
 static int override_version(struct new_utsname __user *name)
 {
 #ifdef CONFIG_F2FS_REPORT_FAKE_KERNEL_VERSION
@@ -1209,7 +1213,14 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 	struct new_utsname tmp;
 
 	down_read(&uts_sem);
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	if (likely(!susfs_spoof_uname(&tmp)))
+		goto bypass_orig_flow;
+#endif
 	memcpy(&tmp, utsname(), sizeof(tmp));
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+bypass_orig_flow:
+#endif
 	up_read(&uts_sem);
 	if (copy_to_user(name, &tmp, sizeof(tmp)))
 		return -EFAULT;
